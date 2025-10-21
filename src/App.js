@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
 import React, { useEffect, useState } from 'react'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import SplashScreen from './screens/SplashScreen'
 import Home from './screens/Home'
 import CustomerSearchScreen from './screens/CustomerSearchScreen'
@@ -88,15 +89,17 @@ const App = () => {
   }
 
   return (
-    <View style={styles.container}>
-      {renderCurrentScreen()}
-      
-      <CustomerSearchScreen
-        visible={showCustomerSearch}
-        onClose={handleCloseSearch}
-        onCustomerFound={handleCustomerFound}
-      />
-    </View>
+    <SafeAreaProvider>
+      <View style={styles.container}>
+        {renderCurrentScreen()}
+        
+        <CustomerSearchScreen
+          visible={showCustomerSearch}
+          onClose={handleCloseSearch}
+          onCustomerFound={handleCustomerFound}
+        />
+      </View>
+    </SafeAreaProvider>
   )
 }
 

@@ -10,6 +10,7 @@ import {
   StatusBar,
   Text
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AnimatedLoadingDots from '../components/common/AnimatedLoadingDots';
 
 const { width, height } = Dimensions.get('window');
@@ -99,7 +100,7 @@ const SplashScreen = ({ navigation }) => {
   });
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar
         barStyle="light-content"
         backgroundColor="#1E40AF"
@@ -215,7 +216,7 @@ const SplashScreen = ({ navigation }) => {
         <Text style={styles.brandingText}>Powered by</Text>
         <Text style={styles.brandingName}>Tata Capital</Text>
       </Animated.View>
-    </View>
+    </SafeAreaView>
   );
 };
 

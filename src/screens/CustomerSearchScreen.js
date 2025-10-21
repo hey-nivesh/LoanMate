@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const CustomerSearchScreen = ({ visible, onClose, onCustomerFound }) => {
   const [mobileNumber, setMobileNumber] = useState('');
