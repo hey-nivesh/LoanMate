@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 
 const Home = ({ navigation, route }) => {
@@ -29,7 +30,7 @@ const Home = ({ navigation, route }) => {
           name: 'Rajesh Kumar',
           customerId: '#12345',
           creditScore: 780,
-          kycVerified: true,
+          kycVerified: false,
           preApprovedAmount: '3,00,000',
           recentActivity: [
             { text: 'Salary slip uploaded', time: '2h ago' },
@@ -65,7 +66,7 @@ const Home = ({ navigation, route }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
       
       <View style={styles.header}>
@@ -76,7 +77,7 @@ const Home = ({ navigation, route }) => {
         </View>
         <Text style={styles.headerTitle}>LoanMate</Text>
         <TouchableOpacity style={styles.menuIcon}>
-          <Text style={styles.menuIconText}>≡</Text>    
+          <Text style={styles.menuIconText}>≡</Text>
         </TouchableOpacity>
       </View>
 
@@ -97,7 +98,7 @@ const Home = ({ navigation, route }) => {
           </View>
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>KYC Status:</Text>
-            <Text style={styles.statValueSuccess}>
+            <Text style={customerData?.kycVerified ? styles.statValueSuccess : styles.statValuePending}>
               {customerData?.kycVerified ? '✅ Verified' : '⏳ Pending'}
             </Text>
           </View>
@@ -108,6 +109,26 @@ const Home = ({ navigation, route }) => {
             </Text>
           </View>
         </View>
+
+        {!customerData?.kycVerified && (
+          <View style={styles.kycAlertCard}>
+            <View style={styles.kycAlertHeader}>
+              <Text style={styles.kycAlertIcon}>⚠️</Text>
+              <View style={styles.kycAlertTextContainer}>
+                <Text style={styles.kycAlertTitle}>KYC Verification Required</Text>
+                <Text style={styles.kycAlertDescription}>
+                  Complete your KYC to unlock all features and get loan approval
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.kycVerifyButton}
+              onPress={() => navigation.navigate('KYCStatus', { customerId: customerData?.customerId })}
+            >
+              <Text style={styles.kycVerifyButtonText}>Verify KYC Now</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <Text style={styles.sectionTitle}>Services</Text>
 
@@ -154,7 +175,7 @@ const Home = ({ navigation, route }) => {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -258,6 +279,53 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#10B981',
   },
+  statValuePending: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#F59E0B',
+  },
+  kycAlertCard: {
+    backgroundColor: '#FEF3C7',
+    marginHorizontal: 20,
+    marginBottom: 24,
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  kycAlertHeader: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  kycAlertIcon: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  kycAlertTextContainer: {
+    flex: 1,
+  },
+  kycAlertTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  kycAlertDescription: {
+    fontSize: 14,
+    color: '#78350F',
+    lineHeight: 20,
+  },
+  kycVerifyButton: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  kycVerifyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
@@ -268,14 +336,14 @@ const styles = StyleSheet.create({
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 20,  
+    paddingHorizontal: 20,
     marginBottom: 24,
-    justifyContent: 'space-between',  
+    justifyContent: 'space-between',
   },
   serviceCard: {
-    width: '48%',  
+    width: '48%',
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 0,  
+    marginHorizontal: 0,
     marginBottom: 16,
     padding: 20,
     borderRadius: 12,

@@ -3,11 +3,14 @@ import React, { useEffect, useState } from 'react'
 import SplashScreen from './screens/SplashScreen'
 import Home from './screens/Home'
 import CustomerSearchScreen from './screens/CustomerSearchScreen'
+import KYCStatusScreen from './screens/KYCStatusScreen'
 
 const App = () => {
   const [isAppReady, setIsAppReady] = useState(false)
   const [showCustomerSearch, setShowCustomerSearch] = useState(false)
   const [customerData, setCustomerData] = useState(null)
+  const [currentScreen, setCurrentScreen] = useState('Home')
+  const [screenParams, setScreenParams] = useState({})
 
   useEffect(() => {
     // Simulate app initialization/loading work
@@ -31,18 +34,46 @@ const App = () => {
     setShowCustomerSearch(false)
   }
 
+  const navigation = {
+    navigate: (screenName, params = {}) => {
+      setCurrentScreen(screenName)
+      setScreenParams(params)
+    },
+    goBack: () => {
+      setCurrentScreen('Home')
+      setScreenParams({})
+    }
+  }
+
   if (!isAppReady) {
     // Provide a minimal navigation stub so SplashScreen doesn't error
     return <SplashScreen navigation={{ replace: () => {} }} />
   }
 
+  const renderCurrentScreen = () => {
+    switch (currentScreen) {
+      case 'KYCStatus':
+        return (
+          <KYCStatusScreen 
+            navigation={navigation} 
+            route={{ params: screenParams }} 
+          />
+        )
+      case 'Home':
+      default:
+        return (
+          <Home 
+            navigation={navigation} 
+            route={{ params: { customerId: customerData?.customerId } }} 
+            customerData={customerData}
+          />
+        )
+    }
+  }
+
   return (
     <View style={styles.container}>
-      <Home 
-        navigation={{}} 
-        route={{ params: { customerId: customerData?.customerId } }} 
-        customerData={customerData}
-      />
+      {renderCurrentScreen()}
       
       <CustomerSearchScreen
         visible={showCustomerSearch}
