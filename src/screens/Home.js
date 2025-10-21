@@ -47,14 +47,14 @@ const Home = ({ navigation, route }) => {
   };
 
   const ServiceCard = ({ icon, title, description, onPress }) => (
-    <TouchableOpacity style={styles.serviceCard} onPress={onPress}>
+    <View style={styles.serviceCard}>
       <Text style={styles.serviceIcon}>{icon}</Text>
       <Text style={styles.serviceTitle}>{title}</Text>
       <Text style={styles.serviceDescription}>{description}</Text>
-      <View style={styles.serviceButton}>
+      <TouchableOpacity style={styles.serviceButton} onPress={onPress}>
         <Text style={styles.serviceButtonText}>Open →</Text>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 
   if (loading) {
@@ -68,7 +68,7 @@ const Home = ({ navigation, route }) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
-      
+
       <View style={styles.header}>
         <View style={styles.profileIcon}>
           <Text style={styles.profileIconText}>
@@ -143,7 +143,9 @@ const Home = ({ navigation, route }) => {
             icon="📁"
             title="Upload Docs"
             description="Upload required documents"
-            onPress={() => navigation.navigate('DocumentUpload')}
+            onPress={() => navigation.navigate('DocumentUpload', {
+              customerId: customerData?.customerId || '#12345'
+            })}
           />
           <ServiceCard
             icon="📊"
@@ -158,7 +160,6 @@ const Home = ({ navigation, route }) => {
             onPress={() => navigation.navigate('LoanApplication')}
           />
         </View>
-
         <Text style={styles.sectionTitle}>Recent Activity</Text>
 
         <View style={styles.activitySection}>

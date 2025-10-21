@@ -113,13 +113,6 @@ const CustomerSearchScreen = ({ visible, onClose, onCustomerFound }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.modalContent}>
-          <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Text style={styles.logoText}>🏦</Text>
-            </View>
-            <Text style={styles.title}>LoanMate</Text>
-            <Text style={styles.subtitle}>Quick Loan Application</Text>
-          </View>
             <View style={styles.formContainer}>
               <Text style={styles.formTitle}>Find Your Profile</Text>
               <Text style={styles.formSubtitle}>

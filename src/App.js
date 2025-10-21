@@ -4,6 +4,8 @@ import SplashScreen from './screens/SplashScreen'
 import Home from './screens/Home'
 import CustomerSearchScreen from './screens/CustomerSearchScreen'
 import KYCStatusScreen from './screens/KYCStatusScreen'
+import DocumentUploadDashboard from './screens/upload_doc/DocumentUploadDashboard'
+import CreditReportScreen from './screens/CreditReportScreen'
 
 const App = () => {
   const [isAppReady, setIsAppReady] = useState(false)
@@ -55,6 +57,20 @@ const App = () => {
       case 'KYCStatus':
         return (
           <KYCStatusScreen 
+            navigation={navigation} 
+            route={{ params: screenParams }} 
+          />
+        )
+      case 'DocumentUpload':
+        return (
+          <DocumentUploadDashboard 
+            navigation={navigation} 
+            route={{ params: screenParams }} 
+          />
+        )
+      case 'CreditReport':
+        return (
+          <CreditReportScreen 
             navigation={navigation} 
             route={{ params: screenParams }} 
           />
