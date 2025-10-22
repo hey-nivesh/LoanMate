@@ -6,6 +6,7 @@ import Home from './screens/Home'
 import CustomerSearchScreen from './screens/CustomerSearchScreen'
 import KYCStatusScreen from './screens/KYCStatusScreen'
 import DocumentUploadDashboard from './screens/upload_doc/DocumentUploadDashboard'
+import DocumentPickerScreen from './screens/upload_doc/DocumentPickerScreen'
 import CreditReportScreen from './screens/CreditReportScreen'
 
 const App = () => {
@@ -60,6 +61,13 @@ const App = () => {
           <KYCStatusScreen 
             navigation={navigation} 
             route={{ params: screenParams }} 
+          />
+        )
+      case 'DocumentPicker':
+        return (
+          <DocumentPickerScreen
+            navigation={navigation}
+            route={{ params: screenParams }}
           />
         )
       case 'DocumentUpload':

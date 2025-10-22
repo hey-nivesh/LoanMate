@@ -5,103 +5,94 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Image,
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import DocumentPicker from 'react-native-document-picker';
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import ImagePicker from 'react-native-image-crop-picker';
+import { pick, types } from '@react-native-documents/picker';
 
 const DocumentPickerScreen = ({ navigation, route }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [previewType, setPreviewType] = useState(null); // 'image' or 'pdf'
+  const [previewType, setPreviewType] = useState(null);
 
   const documentType = route?.params?.documentType || {};
   const customerId = route?.params?.customerId;
 
   const handleChooseFromGallery = () => {
-    const options = {
+    ImagePicker.openPicker({
+      width: 2000,
+      height: 2000,
+      cropping: true,
+      compressImageQuality: 0.8,
       mediaType: 'photo',
-      quality: 1,
-      maxWidth: 2000,
-      maxHeight: 2000,
-    };
-
-    launchImageLibrary(options, (response) => {
-      if (response.didCancel) {
-        console.log('User cancelled image picker');
-      } else if (response.errorCode) {
-        Alert.alert('Error', response.errorMessage);
-      } else if (response.assets && response.assets.length > 0) {
-        const file = response.assets[0];
-        setSelectedFile({
-          uri: file.uri,
-          type: file.type,
-          name: file.fileName || 'image.jpg',
-          size: file.fileSize,
-        });
-        setPreviewType('image');
+      includeBase64: false,
+    }).then((image) => {
+      setSelectedFile({
+        uri: image.path,
+        type: image.mime,
+        name: image.filename || `image_${Date.now()}.jpg`,
+        size: image.size,
+      });
+      setPreviewType('image');
+    }).catch((error) => {
+      if (error.code !== 'E_PICKER_CANCELLED') {
+        Alert.alert('Error', 'Failed to pick image from gallery');
       }
     });
   };
 
   const handleTakePhoto = () => {
-    const options = {
+    ImagePicker.openCamera({
+      width: 2000,
+      height: 2000,
+      cropping: true,
+      compressImageQuality: 0.8,
       mediaType: 'photo',
-      quality: 1,
-      maxWidth: 2000,
-      maxHeight: 2000,
-      saveToPhotos: true,
-    };
-
-    launchCamera(options, (response) => {
-      if (response.didCancel) {
-        console.log('User cancelled camera');
-      } else if (response.errorCode) {
-        Alert.alert('Error', response.errorMessage);
-      } else if (response.assets && response.assets.length > 0) {
-        const file = response.assets[0];
-        setSelectedFile({
-          uri: file.uri,
-          type: file.type,
-          name: file.fileName || 'photo.jpg',
-          size: file.fileSize,
-        });
-        setPreviewType('image');
+      includeBase64: false,
+    }).then((image) => {
+      setSelectedFile({
+        uri: image.path,
+        type: image.mime,
+        name: `photo_${Date.now()}.jpg`,
+        size: image.size,
+      });
+      setPreviewType('image');
+    }).catch((error) => {
+      if (error.code !== 'E_PICKER_CANCELLED') {
+        Alert.alert('Error', 'Failed to capture photo');
       }
     });
   };
 
   const handleChoosePDF = async () => {
     try {
-      const result = await DocumentPicker.pick({
-        type: [DocumentPicker.types.pdf],
+      const result = await pick({
+        type: [types.pdf],
+        allowMultiSelection: false,
       });
 
       if (result && result.length > 0) {
         const file = result[0];
         
-        // Check file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
+        if (file.size && file.size > 5 * 1024 * 1024) {
           Alert.alert('Error', 'File size must be less than 5MB');
           return;
         }
 
         setSelectedFile({
           uri: file.uri,
-          type: file.type,
+          type: file.type || 'application/pdf',
           name: file.name,
           size: file.size,
         });
         setPreviewType('pdf');
       }
     } catch (err) {
-      if (DocumentPicker.isCancel(err)) {
-        console.log('User cancelled document picker');
-      } else {
+      if (err.message !== 'User canceled document picker') {
         Alert.alert('Error', 'Failed to pick document');
       }
     }
@@ -125,6 +116,9 @@ const DocumentPickerScreen = ({ navigation, route }) => {
           text: 'Remove',
           style: 'destructive',
           onPress: () => {
+            if (previewType === 'image') {
+              ImagePicker.clean().catch(() => {});
+            }
             setSelectedFile(null);
             setPreviewType(null);
           },
@@ -139,7 +133,6 @@ const DocumentPickerScreen = ({ navigation, route }) => {
       return;
     }
 
-    // Navigate to upload details form
     navigation.navigate('UploadDetailsForm', {
       file: selectedFile,
       documentType: documentType,
