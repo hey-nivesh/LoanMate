@@ -7,4 +7,9 @@
   name="DocumentPicker" 
   component={DocumentPickerScreen} 
   options={{ headerShown: false }}
+/>,
+<Stack.Screen 
+  name="KYCVerification" 
+  component={KYCVerificationScreen} 
+  options={{ headerShown: false }}
 />

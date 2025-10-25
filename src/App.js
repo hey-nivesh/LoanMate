@@ -5,6 +5,7 @@ import SplashScreen from './screens/SplashScreen'
 import Home from './screens/Home'
 import CustomerSearchScreen from './screens/CustomerSearchScreen'
 import KYCStatusScreen from './screens/KYCStatusScreen'
+import KYCVerificationScreen from './screens/KYCVerificationScreen'
 import DocumentUploadDashboard from './screens/upload_doc/DocumentUploadDashboard'
 import DocumentPickerScreen from './screens/upload_doc/DocumentPickerScreen'
 import CreditReportScreen from './screens/CreditReportScreen'
@@ -73,6 +74,13 @@ const App = () => {
       case 'DocumentUpload':
         return (
           <DocumentUploadDashboard 
+            navigation={navigation} 
+            route={{ params: screenParams }} 
+          />
+        )
+      case 'KYCVerification':
+        return (
+          <KYCVerificationScreen 
             navigation={navigation} 
             route={{ params: screenParams }} 
           />

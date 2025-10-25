@@ -139,12 +139,9 @@ const KYCStatusScreen = ({ navigation, route }) => {
       Alert.alert('KYC Complete', 'All documents are verified!');
       return;
     }
-
-    Alert.alert(
-      'Complete KYC',
-      'Please verify all pending documents to complete your KYC process.',
-      [{ text: 'OK' }]
-    );
+  
+    // Navigate to video verification
+    navigation.navigate('KYCVerification', { customerId: customerId });
   };
 
   const handleDownloadCertificate = () => {
