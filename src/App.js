@@ -2,8 +2,9 @@ import { StyleSheet, Text, View } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import SplashScreen from './screens/SplashScreen'
+import LoginScreen from './screens/LoginScreen'
+import SignUpScreen from './screens/SignUpScreen'
 import Home from './screens/Home'
-import CustomerSearchScreen from './screens/CustomerSearchScreen'
 import KYCStatusScreen from './screens/KYCStatusScreen'
 import KYCVerificationScreen from './screens/KYCVerificationScreen'
 import DocumentUploadDashboard from './screens/upload_doc/DocumentUploadDashboard'
@@ -12,9 +13,8 @@ import CreditReportScreen from './screens/CreditReportScreen'
 
 const App = () => {
   const [isAppReady, setIsAppReady] = useState(false)
-  const [showCustomerSearch, setShowCustomerSearch] = useState(false)
-  const [customerData, setCustomerData] = useState(null)
-  const [currentScreen, setCurrentScreen] = useState('Home')
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [currentScreen, setCurrentScreen] = useState('Login')
   const [screenParams, setScreenParams] = useState({})
 
   useEffect(() => {
@@ -24,19 +24,32 @@ const App = () => {
   }, [])
 
   useEffect(() => {
-    // Show customer search after app is ready
-    if (isAppReady) {
-      setShowCustomerSearch(true)
+    // Show login screen after splash
+    if (isAppReady && !isAuthenticated) {
+      setCurrentScreen('Login')
     }
-  }, [isAppReady])
+  }, [isAppReady, isAuthenticated])
 
-  const handleCustomerFound = (customer) => {
-    setCustomerData(customer)
-    setShowCustomerSearch(false)
+  const handleLogin = (userData) => {
+    // Handle successful login
+    console.log('=== HANDLE LOGIN CALLED ===');
+    console.log('User logged in:', userData);
+    console.log('Setting isAuthenticated to true');
+    setIsAuthenticated(true)
+    console.log('Redirecting to Home...');
+    setCurrentScreen('Home')
+    // After authentication, redirect directly to Home
   }
 
-  const handleCloseSearch = () => {
-    setShowCustomerSearch(false)
+  const handleSignUp = (userData) => {
+    // Handle successful signup
+    console.log('=== HANDLE SIGNUP CALLED ===');
+    console.log('User signed up:', userData);
+    console.log('Setting isAuthenticated to true');
+    setIsAuthenticated(true)
+    console.log('Redirecting to Home...');
+    setCurrentScreen('Home')
+    // After authentication, redirect directly to Home
   }
 
   const navigation = {
@@ -45,17 +58,51 @@ const App = () => {
       setScreenParams(params)
     },
     goBack: () => {
-      setCurrentScreen('Home')
+      // Determine where to go back based on current screen
+      if (['Login', 'SignUp'].includes(currentScreen)) {
+        setCurrentScreen('Login')
+      } else {
+        setCurrentScreen('Home')
+      }
       setScreenParams({})
-    }
+    },
+    // Add a method to handle logout if needed
+    logout: () => {
+      setIsAuthenticated(false)
+      setCurrentScreen('Login')
+      setScreenParams({})
+    },
+    // Add callbacks for auth
+    onLoginSuccess: handleLogin,
+    onSignUpSuccess: handleSignUp
   }
 
   if (!isAppReady) {
-    // Provide a minimal navigation stub so SplashScreen doesn't error
+    // Show splash screen while app is initializing
     return <SplashScreen navigation={{ replace: () => {} }} />
   }
 
   const renderCurrentScreen = () => {
+    // If not authenticated, show auth screens
+    if (!isAuthenticated) {
+      switch (currentScreen) {
+        case 'SignUp':
+          return (
+            <SignUpScreen 
+              navigation={navigation}
+            />
+          )
+        case 'Login':
+        default:
+          return (
+            <LoginScreen 
+              navigation={navigation}
+            />
+          )
+      }
+    }
+
+    // If authenticated, show main app screens
     switch (currentScreen) {
       case 'KYCStatus':
         return (
@@ -97,8 +144,7 @@ const App = () => {
         return (
           <Home 
             navigation={navigation} 
-            route={{ params: { customerId: customerData?.customerId } }} 
-            customerData={customerData}
+            route={{ params: {} }} 
           />
         )
     }
@@ -108,12 +154,6 @@ const App = () => {
     <SafeAreaProvider>
       <View style={styles.container}>
         {renderCurrentScreen()}
-        
-        <CustomerSearchScreen
-          visible={showCustomerSearch}
-          onClose={handleCloseSearch}
-          onCustomerFound={handleCustomerFound}
-        />
       </View>
     </SafeAreaProvider>
   )
