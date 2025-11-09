@@ -10,25 +10,28 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import auth from '@react-native-firebase/auth';
 
 const Home = ({ navigation, route }) => {
   const [customerData, setCustomerData] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (route?.params?.customerId) {
-      fetchCustomerData(route.params.customerId);
-    }
-  }, [route?.params?.customerId]);
+    const fetchUserData = async () => {
+      try {
+        const user = auth().currentUser;
 
-  const fetchCustomerData = async (customerId) => {
-    setLoading(true);
-    try {
-      // Replace with actual API call
-      setTimeout(() => {
-        setCustomerData({
-          name: 'Rajesh Kumar',
-          customerId: '#12345',
+        if (!user) {
+          Alert.alert('Error', 'No user found. Please login again.');
+          navigation.logout();
+          return;
+        }
+
+        // Simulate API data + attach Firebase user info
+        const simulatedData = {
+          name: user.displayName || route?.params?.name || 'User',
+          email: user.email || route?.params?.email || 'N/A',
+          uid: user.uid,
           creditScore: 780,
           kycVerified: false,
           preApprovedAmount: '3,00,000',
@@ -37,12 +40,26 @@ const Home = ({ navigation, route }) => {
             { text: 'KYC verified', time: '1 day ago' },
             { text: 'Credit report fetched', time: '3d ago' },
           ],
-        });
+        };
+
+        setCustomerData(simulatedData);
         setLoading(false);
-      }, 1000);
-    } catch (error) {
-      console.error('Error fetching customer data:', error);
-      setLoading(false);
+      } catch (error) {
+        console.error('Error fetching Firebase user:', error);
+        Alert.alert('Error', 'Failed to load user data');
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await auth().signOut();
+      navigation.logout();
+    } catch (err) {
+      Alert.alert('Error', 'Unable to logout, try again.');
     }
   };
 
@@ -57,7 +74,7 @@ const Home = ({ navigation, route }) => {
     </View>
   );
 
-  if (loading) {
+  if (loading || !customerData) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1E40AF" />
@@ -72,7 +89,7 @@ const Home = ({ navigation, route }) => {
       <View style={styles.header}>
         <View style={styles.profileIcon}>
           <Text style={styles.profileIconText}>
-            {customerData?.name?.charAt(0) || 'U'}
+            {customerData?.name?.charAt(0).toUpperCase() || 'U'}
           </Text>
         </View>
         <Text style={styles.headerTitle}>LoanMate</Text>
@@ -87,7 +104,7 @@ const Home = ({ navigation, route }) => {
             Welcome, {customerData?.name || 'User'}
           </Text>
           <Text style={styles.customerIdText}>
-            Customer ID: {customerData?.customerId || 'N/A'}
+            {customerData?.email || 'N/A'}
           </Text>
         </View>
 

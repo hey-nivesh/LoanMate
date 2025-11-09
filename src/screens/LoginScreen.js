@@ -33,11 +33,17 @@ const LoginScreen = ({ navigation }) => {
 
     try {
       const userCredential = await auth().signInWithEmailAndPassword(email, password);
-      console.log('User signed in!', userCredential.user);
-      // Navigate to your main/home screen
-      // navigation.replace('Home');
+      const user = userCredential.user;
+      const userData = {
+        name: user.displayName || 'User',
+        email: user.email,
+        uid: user.uid,
+      };
+      console.log('Login success:', userData);
+      if (navigation && navigation.onLoginSuccess) {
+        navigation.onLoginSuccess(userData);
+      }
     } catch (error) {
-      console.error(error);
       Alert.alert('Login Error', error.message);
     }
   };

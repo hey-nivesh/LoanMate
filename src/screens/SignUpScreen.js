@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const SignUpScreen = ({ navigation }) => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -22,12 +24,19 @@ const SignUpScreen = ({ navigation }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: '802079954139-l4euorsgks3tntc5pa20ej7t1ecnnmok.apps.googleusercontent.com', // <-- paste it here
+      offlineAccess: true, // optional: set true if you need serverAuthCode
+    });
+  }, []);
+
   const handleSignUp = async () => {
     if (!agreedToTerms) {
       Alert.alert('Error', 'Please agree to Terms & Conditions');
       return;
     }
-    if (!email || !password || !confirmPassword) {
+    if (!email || !password || !confirmPassword || !name) {
       Alert.alert('Error', 'Please fill all fields');
       return;
     }
@@ -38,23 +47,40 @@ const SignUpScreen = ({ navigation }) => {
 
     try {
       const userCredential = await auth().createUserWithEmailAndPassword(email, password);
-      console.log('User account created & signed in!', userCredential.user);
-      // You can redirect or store user info here:
-      // navigation.replace('Home'); // or whatever screen
+      await userCredential.user.updateProfile({ displayName: name });
+      const userData = {
+        name: name,
+        email: userCredential.user.email,
+        uid: userCredential.user.uid,
+      };
+      console.log('User created:', userData);
+      if (navigation && navigation.onSignUpSuccess) {
+        navigation.onSignUpSuccess(userData);
+      }
     } catch (error) {
-      console.error(error);
       Alert.alert('Sign Up Error', error.message);
     }
   };
 
-  const handleGoogleSignUp = () => {
-    console.log('Google sign up');
-    // Add Google OAuth logic if you enable it
-  };
+  const handleGoogleSignUp = async () => {
+    try {
+      // Sign in with Google
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const { idToken } = await GoogleSignin.signIn();
 
-  const handleFacebookSignUp = () => {
-    console.log('Facebook sign up');
-    // Add Facebook OAuth logic if you enable it
+      // Create Firebase credential with the token
+      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+
+      // Sign-in to Firebase with Google credential
+      const userCredential = await auth().signInWithCredential(googleCredential);
+
+      console.log('Google sign-in successful:', userCredential.user.displayName);
+      Alert.alert('Welcome!', `Logged in as ${userCredential.user.displayName}`);
+      // navigation.replace('Home');
+    } catch (error) {
+      console.error('Google Sign-In Error:', error);
+      Alert.alert('Error', error.message);
+    }
   };
 
   return (
@@ -70,10 +96,28 @@ const SignUpScreen = ({ navigation }) => {
 
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Your Trip Starts Here</Text>
+            <Text style={styles.title}>Create Your Account</Text>
             <Text style={styles.subtitle}>
-              Join now and get the perfect car for every ride.
+              Join LoanMate — Your trusted buddy for smarter loans.
             </Text>
+          </View>
+
+          {/* Name Input */}
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Full Name</Text>
+            <View style={styles.inputWrapper}>
+              <View style={styles.iconContainer}>
+                <Text style={styles.inputIcon}>👤</Text>
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="John Doe"
+                placeholderTextColor="#666"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
+            </View>
           </View>
 
           {/* Email Input */}
@@ -96,7 +140,7 @@ const SignUpScreen = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Password Input */}
+          {/* Password */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Password</Text>
             <View style={styles.inputWrapper}>
@@ -115,12 +159,12 @@ const SignUpScreen = ({ navigation }) => {
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeButton}>
-                <Text style={styles.eyeIcon}>{showPassword ? '👁' : '👁'}</Text>
+                <Text style={styles.eyeIcon}>👁</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Confirm Password Input */}
+          {/* Confirm Password */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Confirm Password</Text>
             <View style={styles.inputWrapper}>
@@ -139,12 +183,12 @@ const SignUpScreen = ({ navigation }) => {
               <TouchableOpacity
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                 style={styles.eyeButton}>
-                <Text style={styles.eyeIcon}>{showConfirmPassword ? '👁' : '👁'}</Text>
+                <Text style={styles.eyeIcon}>👁</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Terms and Conditions */}
+          {/* Terms */}
           <TouchableOpacity
             style={styles.checkboxContainer}
             onPress={() => setAgreedToTerms(!agreedToTerms)}
@@ -175,7 +219,7 @@ const SignUpScreen = ({ navigation }) => {
             <View style={styles.divider} />
           </View>
 
-          {/* Social Login Buttons */}
+          {/* Google Sign-In */}
           <View style={styles.socialButtonsContainer}>
             <TouchableOpacity
               style={styles.socialButton}
@@ -184,19 +228,11 @@ const SignUpScreen = ({ navigation }) => {
               <Text style={styles.googleIcon}>G</Text>
               <Text style={styles.socialButtonText}>Google</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.socialButton}
-              onPress={handleFacebookSignUp}
-              activeOpacity={0.8}>
-              <Text style={styles.facebookIcon}>f</Text>
-              <Text style={styles.socialButtonText}>Facebook</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Sign In Link */}
           <View style={styles.signInContainer}>
-            <Text style={styles.signInText}>Already have an account? Go to </Text>
+            <Text style={styles.signInText}>Already have an account? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
               <Text style={styles.signInLink}>Sign In</Text>
             </TouchableOpacity>

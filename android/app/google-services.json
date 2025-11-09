@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "802079954139-ab8rklueiogvu5m251ar19rvken5e8ra.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.loanmate",
+            "certificate_hash": "684e05aec5017e9b1d0cdc52233a70aa1d508f28"
+          }
+        },
+        {
           "client_id": "802079954139-l4euorsgks3tntc5pa20ej7t1ecnnmok.apps.googleusercontent.com",
           "client_type": 3
         }

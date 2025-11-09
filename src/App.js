@@ -1,168 +1,188 @@
-import { StyleSheet, Text, View } from 'react-native'
-import React, { useEffect, useState } from 'react'
-import { SafeAreaProvider } from 'react-native-safe-area-context'
-import SplashScreen from './screens/SplashScreen'
-import LoginScreen from './screens/LoginScreen'
-import SignUpScreen from './screens/SignUpScreen'
-import Home from './screens/Home'
-import KYCStatusScreen from './screens/KYCStatusScreen'
-import KYCVerificationScreen from './screens/KYCVerificationScreen'
-import DocumentUploadDashboard from './screens/upload_doc/DocumentUploadDashboard'
-import DocumentPickerScreen from './screens/upload_doc/DocumentPickerScreen'
-import CreditReportScreen from './screens/CreditReportScreen'
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import auth from '@react-native-firebase/auth';
+
+// Screens
+import SplashScreen from './screens/SplashScreen';
+import LoginScreen from './screens/LoginScreen';
+import SignUpScreen from './screens/SignUpScreen';
+import Home from './screens/Home';
+import KYCStatusScreen from './screens/KYCStatusScreen';
+import KYCVerificationScreen from './screens/KYCVerificationScreen';
+import DocumentUploadDashboard from './screens/upload_doc/DocumentUploadDashboard';
+import DocumentPickerScreen from './screens/upload_doc/DocumentPickerScreen';
+import CreditReportScreen from './screens/CreditReportScreen';
 
 const App = () => {
-  const [isAppReady, setIsAppReady] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [currentScreen, setCurrentScreen] = useState('Login')
-  const [screenParams, setScreenParams] = useState({})
+  const [isAppReady, setIsAppReady] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState('Login');
+  const [screenParams, setScreenParams] = useState({});
 
+  // --- 1️⃣ Splash delay (simulated loading) ---
   useEffect(() => {
-    // Simulate app initialization/loading work
-    const timer = setTimeout(() => setIsAppReady(true), 3000)
-    return () => clearTimeout(timer)
-  }, [])
+    const timer = setTimeout(() => setIsAppReady(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
+  // --- 2️⃣ Firebase listener for persistent login ---
   useEffect(() => {
-    // Show login screen after splash
-    if (isAppReady && !isAuthenticated) {
-      setCurrentScreen('Login')
-    }
-  }, [isAppReady, isAuthenticated])
+    if (!isAppReady) return; // Wait for splash to complete
 
-  const handleLogin = (userData) => {
-    // Handle successful login
+    const unsubscribe = auth().onAuthStateChanged(user => {
+      if (user) {
+        console.log('✅ User already logged in:', user.email);
+        setIsAuthenticated(true);
+        setCurrentScreen('Home');
+        setScreenParams({
+          name: user.displayName || 'User',
+          email: user.email,
+          uid: user.uid,
+        });
+      } else {
+        console.log('🔒 No user session found');
+        setIsAuthenticated(false);
+        setCurrentScreen('Login');
+      }
+    });
+
+    return unsubscribe; // Clean up listener
+  }, [isAppReady]);
+
+  // --- 3️⃣ Handle successful login/signup ---
+  const handleLogin = userData => {
     console.log('=== HANDLE LOGIN CALLED ===');
     console.log('User logged in:', userData);
-    console.log('Setting isAuthenticated to true');
-    setIsAuthenticated(true)
-    console.log('Redirecting to Home...');
-    setCurrentScreen('Home')
-    // After authentication, redirect directly to Home
-  }
+    setIsAuthenticated(true);
+    setCurrentScreen('Home');
+    setScreenParams(userData);
+  };
 
-  const handleSignUp = (userData) => {
-    // Handle successful signup
+  const handleSignUp = userData => {
     console.log('=== HANDLE SIGNUP CALLED ===');
     console.log('User signed up:', userData);
-    console.log('Setting isAuthenticated to true');
-    setIsAuthenticated(true)
-    console.log('Redirecting to Home...');
-    setCurrentScreen('Home')
-    // After authentication, redirect directly to Home
-  }
+    setIsAuthenticated(true);
+    setCurrentScreen('Home');
+    setScreenParams(userData);
+  };
 
+  // --- 4️⃣ Navigation object for manual screen control ---
   const navigation = {
     navigate: (screenName, params = {}) => {
-      setCurrentScreen(screenName)
-      setScreenParams(params)
+      setCurrentScreen(screenName);
+      setScreenParams(params);
     },
     goBack: () => {
-      // Determine where to go back based on current screen
       if (['Login', 'SignUp'].includes(currentScreen)) {
-        setCurrentScreen('Login')
+        setCurrentScreen('Login');
       } else {
-        setCurrentScreen('Home')
+        setCurrentScreen('Home');
       }
-      setScreenParams({})
+      setScreenParams({});
     },
-    // Add a method to handle logout if needed
-    logout: () => {
-      setIsAuthenticated(false)
-      setCurrentScreen('Login')
-      setScreenParams({})
+    logout: async () => {
+      try {
+        await auth().signOut();
+        console.log('🚪 User logged out successfully');
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+      setIsAuthenticated(false);
+      setCurrentScreen('Login');
+      setScreenParams({});
     },
-    // Add callbacks for auth
     onLoginSuccess: handleLogin,
-    onSignUpSuccess: handleSignUp
-  }
+    onSignUpSuccess: handleSignUp,
+  };
 
+  // --- 5️⃣ Splash state handling ---
   if (!isAppReady) {
-    // Show splash screen while app is initializing
-    return <SplashScreen navigation={{ replace: () => {} }} />
+    return <SplashScreen navigation={{ replace: () => {} }} />;
   }
 
+  // --- 6️⃣ Main screen rendering logic ---
   const renderCurrentScreen = () => {
-    // If not authenticated, show auth screens
     if (!isAuthenticated) {
       switch (currentScreen) {
         case 'SignUp':
-          return (
-            <SignUpScreen 
-              navigation={navigation}
-            />
-          )
+          return <SignUpScreen navigation={navigation} />;
         case 'Login':
         default:
-          return (
-            <LoginScreen 
-              navigation={navigation}
-            />
-          )
+          return <LoginScreen navigation={navigation} />;
       }
     }
 
-    // If authenticated, show main app screens
     switch (currentScreen) {
       case 'KYCStatus':
         return (
-          <KYCStatusScreen 
-            navigation={navigation} 
-            route={{ params: screenParams }} 
+          <KYCStatusScreen
+            navigation={navigation}
+            route={{ params: screenParams }}
           />
-        )
+        );
       case 'DocumentPicker':
         return (
           <DocumentPickerScreen
             navigation={navigation}
             route={{ params: screenParams }}
           />
-        )
+        );
       case 'DocumentUpload':
         return (
-          <DocumentUploadDashboard 
-            navigation={navigation} 
-            route={{ params: screenParams }} 
+          <DocumentUploadDashboard
+            navigation={navigation}
+            route={{ params: screenParams }}
           />
-        )
+        );
       case 'KYCVerification':
         return (
-          <KYCVerificationScreen 
-            navigation={navigation} 
-            route={{ params: screenParams }} 
+          <KYCVerificationScreen
+            navigation={navigation}
+            route={{ params: screenParams }}
           />
-        )
+        );
       case 'CreditReport':
         return (
-          <CreditReportScreen 
-            navigation={navigation} 
-            route={{ params: screenParams }} 
+          <CreditReportScreen
+            navigation={navigation}
+            route={{ params: screenParams }}
           />
-        )
+        );
       case 'Home':
       default:
         return (
-          <Home 
-            navigation={navigation} 
-            route={{ params: {} }} 
+          <Home
+            navigation={navigation}
+            route={{ params: screenParams }}
           />
-        )
+        );
     }
-  }
+  };
 
+  // --- 7️⃣ Render final output ---
   return (
     <SafeAreaProvider>
       <View style={styles.container}>
-        {renderCurrentScreen()}
+        {isAppReady ? renderCurrentScreen() : (
+          <View style={styles.loadingScreen}>
+            <ActivityIndicator size="large" color="#10b981" />
+          </View>
+        )}
       </View>
     </SafeAreaProvider>
-  )
-}
+  );
+};
 
-export default App
+export default App;
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1
-  }
-})
+    flex: 1,
+  },
+  loadingScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
