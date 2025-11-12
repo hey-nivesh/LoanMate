@@ -13,10 +13,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ImagePicker from 'react-native-image-crop-picker';
 import { pick, types } from '@react-native-documents/picker';
+import { uploadDocumentToCloudinary, saveDocumentMetadata } from '../../config/cloudinaryConfig.js';
+import {CLOUDINARY_CONFIG} from '../../config/cloudinaryConfig.js';
 
 const DocumentPickerScreen = ({ navigation, route }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [previewType, setPreviewType] = useState(null);
 
   const documentType = route?.params?.documentType || {};
@@ -127,17 +130,79 @@ const DocumentPickerScreen = ({ navigation, route }) => {
     );
   };
 
-  const handleContinue = () => {
+  const handleUploadToCloudinary = async () => {
     if (!selectedFile) {
       Alert.alert('Error', 'Please select a file first');
       return;
     }
 
-    navigation.navigate('UploadDetailsForm', {
-      file: selectedFile,
-      documentType: documentType,
-      customerId: customerId,
-    });
+    setUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      // Upload to Cloudinary
+      const result = await uploadDocumentToCloudinary(
+        selectedFile,
+        documentType.type
+      );
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      if (result.success) {
+        // Save metadata
+        const metadata = {
+          documentType: documentType.type,
+          fileName: selectedFile.name,
+          fileSize: selectedFile.size,
+          fileType: selectedFile.type,
+          cloudinaryUrl: result.data.url,
+          cloudinaryPublicId: result.data.publicId,
+          uploadedAt: new Date().toISOString(),
+          status: 'uploaded',
+        };
+
+        await saveDocumentMetadata(metadata);
+
+        Alert.alert(
+          'Success! 🎉',
+          'Document uploaded successfully to Cloudinary',
+          [
+            {
+              text: 'Upload Another',
+              onPress: () => {
+                setSelectedFile(null);
+                setPreviewType(null);
+                setUploading(false);
+                setUploadProgress(0);
+              },
+            },
+            {
+              text: 'Go Back',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert('Upload Failed', error.message || 'Please try again');
+      setUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   const PickerButton = ({ icon, title, description, onPress, color }) => (
@@ -145,6 +210,7 @@ const DocumentPickerScreen = ({ navigation, route }) => {
       style={[styles.pickerButton, { borderColor: color }]}
       onPress={onPress}
       activeOpacity={0.7}
+      disabled={uploading}
     >
       <View style={[styles.pickerIconContainer, { backgroundColor: color + '20' }]}>
         <Text style={styles.pickerIcon}>{icon}</Text>
@@ -165,6 +231,7 @@ const DocumentPickerScreen = ({ navigation, route }) => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
+          disabled={uploading}
         >
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
@@ -182,43 +249,47 @@ const DocumentPickerScreen = ({ navigation, route }) => {
         </View>
 
         <View style={styles.infoCard}>
-          <Text style={styles.infoIcon}>ℹ️</Text>
+          <Text style={styles.infoIcon}>☁️</Text>
           <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>File Requirements</Text>
+            <Text style={styles.infoTitle}>Cloudinary Upload</Text>
             <Text style={styles.infoDescription}>
+              • Secure cloud storage{'\n'}
               • Accepted formats: PDF, JPG, PNG{'\n'}
               • Maximum file size: 5MB{'\n'}
-              • Document must be clear and legible{'\n'}
-              • All corners should be visible
+              • Document must be clear and legible
             </Text>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Choose Upload Method</Text>
+        {!selectedFile && (
+          <>
+            <Text style={styles.sectionTitle}>Choose Upload Method</Text>
 
-        <PickerButton
-          icon="🖼️"
-          title="Choose from Gallery"
-          description="Select an image from your gallery"
-          color="#3B82F6"
-          onPress={handleChooseFromGallery}
-        />
+            <PickerButton
+              icon="🖼️"
+              title="Choose from Gallery"
+              description="Select an image from your gallery"
+              color="#3B82F6"
+              onPress={handleChooseFromGallery}
+            />
 
-        <PickerButton
-          icon="📷"
-          title="Take Photo"
-          description="Capture document using camera"
-          color="#10B981"
-          onPress={handleTakePhoto}
-        />
+            <PickerButton
+              icon="📷"
+              title="Take Photo"
+              description="Capture document using camera"
+              color="#10B981"
+              onPress={handleTakePhoto}
+            />
 
-        <PickerButton
-          icon="📄"
-          title="Choose PDF"
-          description="Select a PDF document"
-          color="#8B5CF6"
-          onPress={handleChoosePDF}
-        />
+            <PickerButton
+              icon="📄"
+              title="Choose PDF"
+              description="Select a PDF document"
+              color="#8B5CF6"
+              onPress={handleChoosePDF}
+            />
+          </>
+        )}
 
         {selectedFile && (
           <>
@@ -227,12 +298,14 @@ const DocumentPickerScreen = ({ navigation, route }) => {
             <View style={styles.previewCard}>
               <View style={styles.previewHeader}>
                 <Text style={styles.previewTitle}>Selected File</Text>
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={handleRemoveFile}
-                >
-                  <Text style={styles.removeButtonText}>✕ Remove</Text>
-                </TouchableOpacity>
+                {!uploading && (
+                  <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={handleRemoveFile}
+                  >
+                    <Text style={styles.removeButtonText}>✕ Remove</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               {previewType === 'image' ? (
@@ -247,7 +320,7 @@ const DocumentPickerScreen = ({ navigation, route }) => {
                 <View style={styles.pdfPreviewContainer}>
                   <Text style={styles.pdfIcon}>📄</Text>
                   <Text style={styles.pdfText}>PDF Document</Text>
-                  <Text style={styles.pdfSubtext}>Preview not available</Text>
+                  <Text style={styles.pdfSubtext}>Ready to upload</Text>
                 </View>
               )}
 
@@ -271,6 +344,23 @@ const DocumentPickerScreen = ({ navigation, route }) => {
                   </Text>
                 </View>
               </View>
+
+              {/* Upload Progress */}
+              {uploading && (
+                <View style={styles.uploadProgressContainer}>
+                  <View style={styles.progressBarContainer}>
+                    <View 
+                      style={[
+                        styles.progressBarFill, 
+                        { width: `${uploadProgress}%` }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.uploadProgressText}>
+                    Uploading to Cloudinary... {uploadProgress}%
+                  </Text>
+                </View>
+              )}
             </View>
           </>
         )}
@@ -278,19 +368,25 @@ const DocumentPickerScreen = ({ navigation, route }) => {
         <View style={styles.bottomPadding} />
       </ScrollView>
 
-      {selectedFile && (
+      {selectedFile && !uploading && (
         <View style={styles.footer}>
           <TouchableOpacity
-            style={styles.continueButton}
-            onPress={handleContinue}
-            disabled={uploading}
+            style={styles.uploadButton}
+            onPress={handleUploadToCloudinary}
           >
-            {uploading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.continueButtonText}>Continue to Upload</Text>
-            )}
+            <Text style={styles.uploadButtonText}>
+              ☁️ Upload to Cloudinary
+            </Text>
           </TouchableOpacity>
+        </View>
+      )}
+
+      {uploading && (
+        <View style={styles.footer}>
+          <View style={styles.uploadingButton}>
+            <ActivityIndicator color="#FFFFFF" size="small" />
+            <Text style={styles.uploadingButtonText}>Uploading...</Text>
+          </View>
         </View>
       )}
     </SafeAreaView>
@@ -540,6 +636,30 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
   },
+  uploadProgressContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#10B981',
+    borderRadius: 4,
+  },
+  uploadProgressText: {
+    fontSize: 13,
+    color: '#10B981',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   footer: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
@@ -547,13 +667,27 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
-  continueButton: {
-    backgroundColor: '#1E40AF',
+  uploadButton: {
+    backgroundColor: '#10B981',
     borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
   },
-  continueButtonText: {
+  uploadButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  uploadingButton: {
+    backgroundColor: '#6B7280',
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  uploadingButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',

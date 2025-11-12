@@ -109,7 +109,7 @@ const App = () => {
 
   // --- 5️⃣ Splash state handling ---
   if (!isAppReady) {
-    return <SplashScreen navigation={{ replace: () => {} }} />;
+    return <SplashScreen navigation={{ replace: () => { } }} />;
   }
 
   // --- 6️⃣ Main screen rendering logic ---
@@ -150,9 +150,10 @@ const App = () => {
         return (
           <DocumentUploadDashboard
             navigation={navigation}
-            route={{ params: screenParams }}
+            route={{ params: { customerId: userData?.uid || 'user_default' } }}
           />
         );
+
       case 'KYCVerification':
         return (
           <KYCVerificationScreen
