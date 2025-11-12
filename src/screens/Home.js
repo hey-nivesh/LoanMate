@@ -87,11 +87,14 @@ const Home = ({ navigation, route }) => {
       <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
 
       <View style={styles.header}>
-        <View style={styles.profileIcon}>
+        <TouchableOpacity
+          style={styles.profileIcon}
+          onPress={() => navigation.navigate('Profile')}
+          activeOpacity={0.7}>
           <Text style={styles.profileIconText}>
-            {customerData?.name?.charAt(0).toUpperCase() || 'U'}
+            {navigation.userData?.name?.charAt(0).toUpperCase() || 'U'}
           </Text>
-        </View>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>LoanMate</Text>
         <TouchableOpacity style={styles.menuIcon}>
           <Text style={styles.menuIconText}>≡</Text>

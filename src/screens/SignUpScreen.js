@@ -111,7 +111,7 @@ const SignUpScreen = ({ navigation }) => {
               </View>
               <TextInput
                 style={styles.input}
-                placeholder="John Doe"
+                placeholder="enter your full name"
                 placeholderTextColor="#666"
                 value={name}
                 onChangeText={setName}

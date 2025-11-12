@@ -7,6 +7,7 @@ import auth from '@react-native-firebase/auth';
 import SplashScreen from './screens/SplashScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
+import ProfileScreen from './screens/ProfileScreen';
 import Home from './screens/Home';
 import KYCStatusScreen from './screens/KYCStatusScreen';
 import KYCVerificationScreen from './screens/KYCVerificationScreen';
@@ -17,6 +18,7 @@ import CreditReportScreen from './screens/CreditReportScreen';
 const App = () => {
   const [isAppReady, setIsAppReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userData, setUserData] = useState(null);
   const [currentScreen, setCurrentScreen] = useState('Login');
   const [screenParams, setScreenParams] = useState({});
 
@@ -33,16 +35,19 @@ const App = () => {
     const unsubscribe = auth().onAuthStateChanged(user => {
       if (user) {
         console.log('✅ User already logged in:', user.email);
-        setIsAuthenticated(true);
-        setCurrentScreen('Home');
-        setScreenParams({
+        const userInfo = {
           name: user.displayName || 'User',
           email: user.email,
           uid: user.uid,
-        });
+        };
+        setIsAuthenticated(true);
+        setUserData(userInfo);
+        setCurrentScreen('Home');
+        setScreenParams(userInfo);
       } else {
         console.log('🔒 No user session found');
         setIsAuthenticated(false);
+        setUserData(null);
         setCurrentScreen('Login');
       }
     });
@@ -51,20 +56,22 @@ const App = () => {
   }, [isAppReady]);
 
   // --- 3️⃣ Handle successful login/signup ---
-  const handleLogin = userData => {
+  const handleLogin = user => {
     console.log('=== HANDLE LOGIN CALLED ===');
-    console.log('User logged in:', userData);
+    console.log('User logged in:', user);
     setIsAuthenticated(true);
+    setUserData(user);
     setCurrentScreen('Home');
-    setScreenParams(userData);
+    setScreenParams(user);
   };
 
-  const handleSignUp = userData => {
+  const handleSignUp = user => {
     console.log('=== HANDLE SIGNUP CALLED ===');
-    console.log('User signed up:', userData);
+    console.log('User signed up:', user);
     setIsAuthenticated(true);
+    setUserData(user);
     setCurrentScreen('Home');
-    setScreenParams(userData);
+    setScreenParams(user);
   };
 
   // --- 4️⃣ Navigation object for manual screen control ---
@@ -89,11 +96,14 @@ const App = () => {
         console.error('Logout error:', error);
       }
       setIsAuthenticated(false);
+      setUserData(null);
       setCurrentScreen('Login');
       setScreenParams({});
     },
     onLoginSuccess: handleLogin,
     onSignUpSuccess: handleSignUp,
+    // Add userData to navigation object so it's accessible in all screens
+    userData: userData,
   };
 
   // --- 5️⃣ Splash state handling ---
@@ -114,6 +124,13 @@ const App = () => {
     }
 
     switch (currentScreen) {
+      case 'Profile':
+        return (
+          <ProfileScreen
+            navigation={navigation}
+            route={{ params: { userData, ...screenParams } }}
+          />
+        );
       case 'KYCStatus':
         return (
           <KYCStatusScreen
