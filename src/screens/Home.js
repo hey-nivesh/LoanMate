@@ -8,6 +8,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
@@ -15,6 +16,17 @@ import auth from '@react-native-firebase/auth';
 const Home = ({ navigation, route }) => {
   const [customerData, setCustomerData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = auth().onAuthStateChanged(user => {
+      setCurrentUser(user);
+    });
+    return unsubscribe;
+  }, []);
+
+  const profileImage = currentUser?.photoURL || navigation.userData?.photoURL;
+  const userName = navigation.userData?.name || currentUser?.displayName || 'User';
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -88,12 +100,21 @@ const Home = ({ navigation, route }) => {
 
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.profileIcon}
+          style={styles.profileIconContainer}
           onPress={() => navigation.navigate('Profile')}
           activeOpacity={0.7}>
-          <Text style={styles.profileIconText}>
-            {navigation.userData?.name?.charAt(0).toUpperCase() || 'U'}
-          </Text>
+          {profileImage ? (
+            <Image
+              source={{ uri: profileImage }}
+              style={styles.profileIconImage}
+            />
+          ) : (
+            <View style={styles.profileIcon}>
+              <Text style={styles.profileIconText}>
+                {userName?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
         <Text style={styles.headerTitle}>LoanMate</Text>
         <TouchableOpacity style={styles.menuIcon}>
@@ -220,6 +241,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+  },
+  profileIconContainer: {},
+  profileIconImage: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    borderWidth: 2,
+    borderColor: '#f0e68c',
   },
   profileIcon: {
     width: 40,

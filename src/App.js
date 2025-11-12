@@ -39,6 +39,7 @@ const App = () => {
           name: user.displayName || 'User',
           email: user.email,
           uid: user.uid,
+          photoURL: user.photoURL || null, // Include profile image
         };
         setIsAuthenticated(true);
         setUserData(userInfo);

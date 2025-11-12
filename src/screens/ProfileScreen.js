@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,17 +7,27 @@ import {
   ScrollView,
   StatusBar,
   Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from '@react-native-community/blur';
+import ImagePicker from 'react-native-image-crop-picker';
+import auth from '@react-native-firebase/auth';
 
 const ProfileScreen = ({ navigation, route }) => {
   const { userData } = route.params || {};
   
   // Dynamic data from Firebase/Auth
-  const userName = userData?.name || 'Ahmad Dorwart';
-  const userEmail = userData?.email || 'ahmad@example.com';
-  const userId = userData?.uid || '31654513655';
+  const [userName, setUserName] = useState(userData?.name || 'Ahmad Dorwart');
+  const [userEmail] = useState(userData?.email || 'ahmad@example.com');
+  const [userId] = useState(userData?.uid || '31654513655');
+  const [profileImage, setProfileImage] = useState(userData?.photoURL || null);
+  const [uploading, setUploading] = useState(false);
+  
+  // Cloudinary config
+  const CLOUDINARY_CLOUD_NAME = 'drvvefqs9';
+  const CLOUDINARY_UPLOAD_PRESET = 'loanmate_avatar'; // Replace with your actual preset name
+  const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
   
   // Static data for now (will be fetched from backend later)
   const [profileStats] = useState({
@@ -27,16 +37,144 @@ const ProfileScreen = ({ navigation, route }) => {
     followers: '3.6k',
   });
   
-  const [creditScore] = useState(750); // Static for now
-  const [kycStatus] = useState('Verified'); // Static: Verified, Pending, Not Started
-  const [preApprovedAmount] = useState(500000); // Static for now
+  const [creditScore] = useState(750);
+  const [kycStatus] = useState('Verified');
+  const [preApprovedAmount] = useState(500000);
   
   const [activeTab, setActiveTab] = useState('Talkie');
   const [activeSectionTab, setActiveSectionTab] = useState('Talkie list');
 
-  const handleLogout = () => {
-    // You can add Firebase logout here
-    navigation.logout();
+  // Load user's photo from Firebase on mount
+  useEffect(() => {
+    const currentUser = auth().currentUser;
+    if (currentUser?.photoURL) {
+      setProfileImage(currentUser.photoURL);
+    }
+  }, []);
+
+  const handleImagePick = () => {
+    Alert.alert(
+      'Upload Profile Picture',
+      'Choose an option',
+      [
+        {
+          text: 'Take Photo',
+          onPress: () => openCamera(),
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: () => openGallery(),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const openCamera = async () => {
+    try {
+      const image = await ImagePicker.openCamera({
+        width: 400,
+        height: 400,
+        cropping: true,
+        cropperCircleOverlay: true,
+        compressImageQuality: 0.8,
+      });
+      uploadImageToCloudinary(image);
+    } catch (error) {
+      console.log('Camera error:', error);
+    }
+  };
+
+  const openGallery = async () => {
+    try {
+      const image = await ImagePicker.openPicker({
+        width: 400,
+        height: 400,
+        cropping: true,
+        cropperCircleOverlay: true,
+        compressImageQuality: 0.8,
+      });
+      uploadImageToCloudinary(image);
+    } catch (error) {
+      console.log('Gallery error:', error);
+    }
+  };
+
+  const uploadImageToCloudinary = async (image) => {
+    setUploading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', {
+        uri: image.path,
+        type: image.mime,
+        name: `profile_${userId}.jpg`,
+      });
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+      formData.append('folder', 'avatars');
+      
+      console.log('Uploading to Cloudinary...');
+      
+      const response = await fetch(CLOUDINARY_UPLOAD_URL, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const data = await response.json();
+      
+      if (data.secure_url) {
+        console.log('✅ Upload successful:', data.secure_url);
+        
+        // Update local state
+        setProfileImage(data.secure_url);
+        
+        // Update Firebase user profile
+        const currentUser = auth().currentUser;
+        if (currentUser) {
+          await currentUser.updateProfile({
+            photoURL: data.secure_url,
+          });
+          console.log('✅ Firebase profile updated');
+        }
+        
+        Alert.alert('Success', 'Profile picture updated successfully!');
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert('Error', 'Failed to upload image. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          onPress: async () => {
+            await navigation.logout();
+          },
+          style: 'destructive',
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const getInitials = (name) => {
@@ -84,11 +222,34 @@ const ProfileScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}>
         
-        {/* Profile Avatar */}
+        {/* Profile Avatar with Upload */}
         <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{getInitials(userName)}</Text>
-          </View>
+          <TouchableOpacity 
+            onPress={handleImagePick}
+            activeOpacity={0.8}
+            disabled={uploading}>
+            <View style={styles.avatarWrapper}>
+              {profileImage ? (
+                <Image 
+                  source={{ uri: profileImage }} 
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{getInitials(userName)}</Text>
+                </View>
+              )}
+              
+              {/* Camera Icon Overlay */}
+              <View style={styles.cameraIconContainer}>
+                {uploading ? (
+                  <ActivityIndicator size="small" color="#0a3d2e" />
+                ) : (
+                  <Text style={styles.cameraIcon}>📷</Text>
+                )}
+              </View>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* User Info */}
@@ -293,6 +454,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
   },
+  avatarWrapper: {
+    position: 'relative',
+  },
   avatar: {
     width: 120,
     height: 120,
@@ -303,10 +467,33 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#f0e68c',
   },
+  avatarImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: '#f0e68c',
+  },
   avatarText: {
     fontSize: 48,
     fontWeight: 'bold',
     color: '#0a3d2e',
+  },
+  cameraIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f0e68c',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#0a3d2e',
+  },
+  cameraIcon: {
+    fontSize: 18,
   },
   userName: {
     fontSize: 24,
