@@ -9,12 +9,58 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ImagePicker from 'react-native-image-crop-picker';
 import { pick, types } from '@react-native-documents/picker';
 import { uploadDocumentToCloudinary, saveDocumentMetadata } from '../../config/cloudinaryConfig.js';
-import {CLOUDINARY_CONFIG} from '../../config/cloudinaryConfig.js';
+
+// Runtime permission helpers (Android)
+const requestCameraPermission = async () => {
+  if (Platform.OS === 'android') {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        {
+          title: 'Camera Permission',
+          message: 'App needs access to your camera',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  }
+  return true;
+};
+
+const requestStoragePermission = async () => {
+  if (Platform.OS === 'android') {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+        {
+          title: 'Storage Permission',
+          message: 'App needs access to your storage',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  }
+  return true;
+};
 
 const DocumentPickerScreen = ({ navigation, route }) => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -25,7 +71,15 @@ const DocumentPickerScreen = ({ navigation, route }) => {
   const documentType = route?.params?.documentType || {};
   const customerId = route?.params?.customerId;
 
-  const handleChooseFromGallery = () => {
+  const handleChooseFromGallery = async () => {
+    console.log('🖼️ Gallery button pressed');
+
+    const hasPermission = await requestStoragePermission();
+    if (!hasPermission) {
+      Alert.alert('Permission Denied', 'Storage permission is required to access gallery');
+      return;
+    }
+
     ImagePicker.openPicker({
       width: 2000,
       height: 2000,
@@ -34,6 +88,7 @@ const DocumentPickerScreen = ({ navigation, route }) => {
       mediaType: 'photo',
       includeBase64: false,
     }).then((image) => {
+      console.log('✅ Image selected:', image);
       setSelectedFile({
         uri: image.path,
         type: image.mime,
@@ -42,13 +97,22 @@ const DocumentPickerScreen = ({ navigation, route }) => {
       });
       setPreviewType('image');
     }).catch((error) => {
+      console.log('❌ Gallery error:', error);
       if (error.code !== 'E_PICKER_CANCELLED') {
-        Alert.alert('Error', 'Failed to pick image from gallery');
+        Alert.alert('Error', `Failed to pick image: ${error.message || 'Unknown error'}`);
       }
     });
   };
 
-  const handleTakePhoto = () => {
+  const handleTakePhoto = async () => {
+    console.log('📷 Camera button pressed');
+
+    const hasPermission = await requestCameraPermission();
+    if (!hasPermission) {
+      Alert.alert('Permission Denied', 'Camera permission is required to take photos');
+      return;
+    }
+
     ImagePicker.openCamera({
       width: 2000,
       height: 2000,
@@ -57,6 +121,7 @@ const DocumentPickerScreen = ({ navigation, route }) => {
       mediaType: 'photo',
       includeBase64: false,
     }).then((image) => {
+      console.log('✅ Photo taken:', image);
       setSelectedFile({
         uri: image.path,
         type: image.mime,
@@ -65,21 +130,28 @@ const DocumentPickerScreen = ({ navigation, route }) => {
       });
       setPreviewType('image');
     }).catch((error) => {
+      console.log('❌ Camera error:', error);
       if (error.code !== 'E_PICKER_CANCELLED') {
-        Alert.alert('Error', 'Failed to capture photo');
+        Alert.alert('Error', `Failed to capture photo: ${error.message || 'Unknown error'}`);
       }
     });
   };
 
   const handleChoosePDF = async () => {
+    console.log('📄 PDF picker button pressed');
+
     try {
       const result = await pick({
         type: [types.pdf],
         allowMultiSelection: false,
       });
 
+      console.log('📄 PDF picker result:', result);
+
       if (result && result.length > 0) {
         const file = result[0];
+        
+        console.log('📄 PDF file selected:', file);
         
         if (file.size && file.size > 5 * 1024 * 1024) {
           Alert.alert('Error', 'File size must be less than 5MB');
@@ -95,6 +167,7 @@ const DocumentPickerScreen = ({ navigation, route }) => {
         setPreviewType('pdf');
       }
     } catch (err) {
+      console.log('❌ PDF picker error:', err);
       if (err.message !== 'User canceled document picker') {
         Alert.alert('Error', 'Failed to pick document');
       }
@@ -140,6 +213,10 @@ const DocumentPickerScreen = ({ navigation, route }) => {
     setUploadProgress(0);
 
     try {
+      console.log('📤 Starting upload process...');
+      console.log('File details:', selectedFile);
+      console.log('Document type:', documentType.type);
+
       // Simulate upload progress
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
@@ -151,6 +228,13 @@ const DocumentPickerScreen = ({ navigation, route }) => {
         });
       }, 200);
 
+      // Upload debug logs
+      console.log('=== UPLOAD DEBUG ===');
+      console.log('Selected file:', selectedFile);
+      console.log('Document type:', documentType);
+      console.log('Document type.type:', documentType?.type);
+      console.log('Customer ID:', customerId);
+
       // Upload to Cloudinary
       const result = await uploadDocumentToCloudinary(
         selectedFile,
@@ -160,45 +244,60 @@ const DocumentPickerScreen = ({ navigation, route }) => {
       clearInterval(progressInterval);
       setUploadProgress(100);
 
+      console.log('Upload result:', result);
+
       if (result.success) {
-        // Save metadata
+        // Save metadata with proper formatting
         const metadata = {
           documentType: documentType.type,
           fileName: selectedFile.name,
-          fileSize: selectedFile.size,
+          fileSize: formatFileSize(selectedFile.size), // Formatted size
+          fileSizeBytes: selectedFile.size, // Raw size for calculations
           fileType: selectedFile.type,
+          mimeType: selectedFile.type,
           cloudinaryUrl: result.data.url,
           cloudinaryPublicId: result.data.publicId,
           uploadedAt: new Date().toISOString(),
           status: 'uploaded',
         };
 
-        await saveDocumentMetadata(metadata);
+        console.log('💾 Saving metadata:', metadata);
 
-        Alert.alert(
-          'Success! 🎉',
-          'Document uploaded successfully to Cloudinary',
-          [
-            {
-              text: 'Upload Another',
-              onPress: () => {
-                setSelectedFile(null);
-                setPreviewType(null);
-                setUploading(false);
-                setUploadProgress(0);
+        const saveResult = await saveDocumentMetadata(metadata);
+
+        console.log('Save result:', saveResult);
+
+        if (saveResult.success) {
+          Alert.alert(
+            'Success! 🎉',
+            'Document uploaded successfully to Cloudinary',
+            [
+              {
+                text: 'Upload Another',
+                onPress: () => {
+                  setSelectedFile(null);
+                  setPreviewType(null);
+                  setUploading(false);
+                  setUploadProgress(0);
+                },
               },
-            },
-            {
-              text: 'Go Back',
-              onPress: () => navigation.goBack(),
-            },
-          ]
-        );
+              {
+                text: 'View Documents',
+                onPress: () => {
+                  navigation.goBack();
+                },
+              },
+            ]
+          );
+        } else {
+          throw new Error('Failed to save document metadata');
+        }
       } else {
         throw new Error(result.error || 'Upload failed');
       }
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('❌ Upload error:', error);
+      console.error('Error details:', error.message);
       Alert.alert('Upload Failed', error.message || 'Please try again');
       setUploading(false);
       setUploadProgress(0);

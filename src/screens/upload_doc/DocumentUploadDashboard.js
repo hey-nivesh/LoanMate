@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import auth from '@react-native-firebase/auth';
 
 const DocumentUploadDashboard = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
@@ -30,7 +31,7 @@ const DocumentUploadDashboard = ({ navigation, route }) => {
 
       // Fetch all documents from AsyncStorage (where we saved them after upload)
       const allDocs = await getAllUploadedDocuments();
-      
+
       // Group documents by type
       const documentsByType = {
         'Salary Slip': [],
@@ -53,7 +54,7 @@ const DocumentUploadDashboard = ({ navigation, route }) => {
           icon: '💰',
           description: 'Upload your recent salary slips',
           uploadedCount: documentsByType['Salary Slip'].length,
-          requiredCount: 3,
+          requiredCount: 1,
           color: '#3B82F6',
           documents: documentsByType['Salary Slip'],
         },
@@ -63,7 +64,7 @@ const DocumentUploadDashboard = ({ navigation, route }) => {
           icon: '🆔',
           description: 'PAN Card or Aadhaar Card',
           uploadedCount: documentsByType['ID Proof'].length,
-          requiredCount: 2,
+          requiredCount: 1,
           color: '#8B5CF6',
           documents: documentsByType['ID Proof'],
         },
@@ -83,7 +84,7 @@ const DocumentUploadDashboard = ({ navigation, route }) => {
           icon: '🏦',
           description: 'Last 3 months bank statements',
           uploadedCount: documentsByType['Bank Statement'].length,
-          requiredCount: 3,
+          requiredCount: 1,
           color: '#10B981',
           documents: documentsByType['Bank Statement'],
         },
@@ -127,21 +128,36 @@ const DocumentUploadDashboard = ({ navigation, route }) => {
 
   const getAllUploadedDocuments = async () => {
     try {
-      // Get all documents from AsyncStorage
+      const currentUser = auth().currentUser;
+      const userId = currentUser?.uid;
+
+      if (!userId) {
+        return [];
+      }
+
+      // Get all keys from AsyncStorage
       const keys = await AsyncStorage.getAllKeys();
-      const documentKeys = keys.filter(key => key.startsWith('document_'));
+      // Filter keys that belong to this user
+      const documentKeys = keys.filter(key => key.startsWith(`document_${userId}_`));
+
+      if (documentKeys.length === 0) {
+        return [];
+      }
+
       const documentData = await AsyncStorage.multiGet(documentKeys);
-      
+
       const documents = documentData
         .map(([key, value]) => {
           try {
             return JSON.parse(value);
           } catch (e) {
+            console.error('Error parsing document:', e);
             return null;
           }
         })
         .filter(doc => doc !== null);
 
+      console.log(`📄 Found ${documents.length} documents for user ${userId}`);
       return documents;
     } catch (error) {
       console.error('Error getting documents from storage:', error);

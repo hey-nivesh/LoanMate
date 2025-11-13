@@ -14,6 +14,8 @@ import KYCVerificationScreen from './screens/KYCVerificationScreen';
 import DocumentUploadDashboard from './screens/upload_doc/DocumentUploadDashboard';
 import DocumentPickerScreen from './screens/upload_doc/DocumentPickerScreen';
 import CreditReportScreen from './screens/CreditReportScreen';
+import DocumentViewerScreen from './screens/upload_doc/DocumentViewerScreen';
+import DocumentsListScreen from './screens/upload_doc/DocumentsListScreen';
 
 const App = () => {
   const [isAppReady, setIsAppReady] = useState(false);
@@ -139,6 +141,14 @@ const App = () => {
             route={{ params: screenParams }}
           />
         );
+      case 'DocumentUpload':
+        return (
+          <DocumentUploadDashboard
+            navigation={navigation}
+            route={{ params: { customerId: userData?.uid || 'user_default' } }}
+          />
+        );
+
       case 'DocumentPicker':
         return (
           <DocumentPickerScreen
@@ -146,11 +156,20 @@ const App = () => {
             route={{ params: screenParams }}
           />
         );
-      case 'DocumentUpload':
+
+      case 'DocumentsList':
         return (
-          <DocumentUploadDashboard
+          <DocumentsListScreen
             navigation={navigation}
-            route={{ params: { customerId: userData?.uid || 'user_default' } }}
+            route={{ params: screenParams }}
+          />
+        );
+
+      case 'DocumentViewer':
+        return (
+          <DocumentViewerScreen
+            navigation={navigation}
+            route={{ params: screenParams }}
           />
         );
 

@@ -1,18 +1,19 @@
-// Create this file: services/cloudinaryConfig.js
+// cloudinaryConfig.js - UPDATED with correct preset names
 
 import auth from '@react-native-firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Cloudinary configuration
 export const CLOUDINARY_CONFIG = {
   cloudName: 'drvvefqs9',
   baseFolder: 'loanmate_docs',
   
-  // Upload presets for each document type
+  // Upload presets - UPDATED to match your Cloudinary dashboard
   presets: {
-    salary_slip: 'salary_preset',
-    id_proof: 'id_preset',
-    address_proof: 'address_preset',
-    bank_statement: 'bank_preset',
+    salary_slip: 'salary_preset',      // matches "salary_preset" in your dashboard
+    id_proof: 'id_preset',              // matches "id_preset" 
+    address_proof: 'address_preset',    // matches "address_preset"
+    bank_statement: 'bank_preset',      // matches "bank_preset"
   },
   
   // Folder paths for each document type
@@ -36,6 +37,8 @@ export const uploadDocumentToCloudinary = async (file, documentType) => {
     const userEmail = currentUser?.email || 'unknown';
     const userId = currentUser?.uid || 'unknown';
     
+    console.log('🔐 Current user:', userId, userEmail);
+    
     // Map document type to Cloudinary config
     const typeMapping = {
       'Salary Slip': 'salary_slip',
@@ -45,6 +48,18 @@ export const uploadDocumentToCloudinary = async (file, documentType) => {
     };
     
     const cloudinaryType = typeMapping[documentType] || 'salary_slip';
+    const uploadPreset = CLOUDINARY_CONFIG.presets[cloudinaryType];
+    
+    console.log('📋 Document type mapping:', {
+      documentType,
+      cloudinaryType,
+      uploadPreset,
+    });
+
+    // Check if upload preset exists
+    if (!uploadPreset) {
+      throw new Error(`No upload preset found for ${documentType}`);
+    }
     
     const formData = new FormData();
     
@@ -56,7 +71,7 @@ export const uploadDocumentToCloudinary = async (file, documentType) => {
     });
     
     // Add upload preset
-    formData.append('upload_preset', CLOUDINARY_CONFIG.presets[cloudinaryType]);
+    formData.append('upload_preset', uploadPreset);
     
     // Add folder
     formData.append('folder', CLOUDINARY_CONFIG.folders[cloudinaryType]);
@@ -68,13 +83,14 @@ export const uploadDocumentToCloudinary = async (file, documentType) => {
     // Add tags for easy filtering
     formData.append('tags', `${userId},${cloudinaryType},${documentType}`);
     
-    // Add public_id with user info (optional - makes it easier to find)
+    // Add public_id with user info
     const publicId = `${cloudinaryType}_${userId}_${Date.now()}`;
     formData.append('public_id', publicId);
     
     console.log('📤 Uploading to Cloudinary...', {
+      url: getUploadUrl(),
       type: cloudinaryType,
-      preset: CLOUDINARY_CONFIG.presets[cloudinaryType],
+      preset: uploadPreset,
       folder: CLOUDINARY_CONFIG.folders[cloudinaryType],
     });
     
@@ -86,7 +102,11 @@ export const uploadDocumentToCloudinary = async (file, documentType) => {
       },
     });
     
+    console.log('📡 Response status:', response.status);
+    
     const data = await response.json();
+    
+    console.log('📦 Response data:', data);
     
     if (data.secure_url) {
       console.log('✅ Upload successful:', data.secure_url);
@@ -106,7 +126,9 @@ export const uploadDocumentToCloudinary = async (file, documentType) => {
         },
       };
     } else {
-      throw new Error('Upload failed - no URL returned');
+      // Log the error from Cloudinary
+      console.error('❌ Cloudinary error response:', data);
+      throw new Error(data.error?.message || 'Upload failed - no URL returned');
     }
   } catch (error) {
     console.error('❌ Cloudinary upload error:', error);
@@ -117,7 +139,7 @@ export const uploadDocumentToCloudinary = async (file, documentType) => {
   }
 };
 
-// Fetch user's documents from Cloudinary
+// Fetch user's documents from AsyncStorage
 export const fetchUserDocuments = async () => {
   try {
     const currentUser = auth().currentUser;
@@ -127,29 +149,49 @@ export const fetchUserDocuments = async () => {
       throw new Error('User not authenticated');
     }
     
-    // Note: This requires Cloudinary Admin API which needs backend
-    // For now, we'll store uploaded documents in Firebase
-    // You can implement this later with your backend
-    
     console.log('📋 Fetching documents for user:', userId);
     
-    // TODO: Implement backend API call to fetch documents
-    // const response = await fetch(`YOUR_BACKEND_API/documents/${userId}`);
+    // Get all document keys for this user
+    const keys = await AsyncStorage.getAllKeys();
+    const userDocKeys = keys.filter(key => key.startsWith(`document_${userId}_`));
+    
+    if (userDocKeys.length === 0) {
+      return {
+        success: true,
+        documents: [],
+      };
+    }
+    
+    // Get all documents
+    const documentData = await AsyncStorage.multiGet(userDocKeys);
+    const documents = documentData
+      .map(([key, value]) => {
+        try {
+          return JSON.parse(value);
+        } catch (e) {
+          console.error('Error parsing document:', e);
+          return null;
+        }
+      })
+      .filter(doc => doc !== null);
+    
+    console.log(`✅ Found ${documents.length} documents`);
     
     return {
       success: true,
-      documents: [],
+      documents: documents,
     };
   } catch (error) {
     console.error('Error fetching documents:', error);
     return {
       success: false,
       error: error.message,
+      documents: [],
     };
   }
 };
 
-// Save document metadata to Firebase (after Cloudinary upload)
+// Save document metadata to AsyncStorage (after Cloudinary upload)
 export const saveDocumentMetadata = async (documentData) => {
   try {
     const currentUser = auth().currentUser;
@@ -159,21 +201,72 @@ export const saveDocumentMetadata = async (documentData) => {
       throw new Error('User not authenticated');
     }
     
-    // TODO: Save to Firebase Firestore
-    // const docRef = await firestore()
-    //   .collection('users')
-    //   .doc(userId)
-    //   .collection('documents')
-    //   .add(documentData);
+    // Create unique document ID with timestamp
+    const timestamp = Date.now();
+    const docId = `document_${userId}_${timestamp}`;
     
-    console.log('💾 Document metadata saved:', documentData);
+    // Add additional metadata
+    const documentWithMetadata = {
+      ...documentData,
+      id: docId,
+      userId: userId,
+      uploadedAt: new Date().toISOString(),
+      timestamp: timestamp,
+    };
+    
+    // Save to AsyncStorage
+    await AsyncStorage.setItem(docId, JSON.stringify(documentWithMetadata));
+    
+    console.log('💾 Document metadata saved:', docId);
+    console.log('📄 Document data:', documentWithMetadata);
     
     return {
       success: true,
-      docId: 'temp_id',
+      docId: docId,
+      document: documentWithMetadata,
     };
   } catch (error) {
     console.error('Error saving metadata:', error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Delete document from AsyncStorage
+export const deleteDocumentMetadata = async (docId) => {
+  try {
+    await AsyncStorage.removeItem(docId);
+    console.log('🗑️ Document deleted:', docId);
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Get single document by ID
+export const getDocumentById = async (docId) => {
+  try {
+    const docData = await AsyncStorage.getItem(docId);
+    if (docData) {
+      return {
+        success: true,
+        document: JSON.parse(docData),
+      };
+    }
+    return {
+      success: false,
+      error: 'Document not found',
+    };
+  } catch (error) {
+    console.error('Error getting document:', error);
     return {
       success: false,
       error: error.message,

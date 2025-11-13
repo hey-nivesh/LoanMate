@@ -14,18 +14,13 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import Pdf from 'react-native-pdf';
-import * as FileSystem from 'expo-file-system';
+import { deleteDocumentMetadata } from '../../config/cloudinaryConfig';
 
 const { width, height } = Dimensions.get('window');
 
 const DocumentViewerScreen = ({ route, navigation }) => {
   const { document } = route.params;
   const [zoom, setZoom] = useState(1);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
@@ -68,17 +63,12 @@ const DocumentViewerScreen = ({ route, navigation }) => {
       }
 
       const result = await Share.share({
-        message: `Check out this document: ${document?.fileName || 'Document'}`,
-        url: shareUrl,
+        message: `Check out this document: ${document?.fileName || 'Document'}\n\n${shareUrl}`,
         title: document?.fileName || 'Document',
       });
 
       if (result.action === Share.sharedAction) {
-        if (result.activityType) {
-          console.log('Shared with activity type:', result.activityType);
-        } else {
-          console.log('Document shared successfully');
-        }
+        console.log('Document shared successfully');
       }
     } catch (error) {
       console.error('Share error:', error);
@@ -86,7 +76,7 @@ const DocumentViewerScreen = ({ route, navigation }) => {
     }
   };
 
-  // Download document
+  // Download/Open document
   const handleDownload = async () => {
     try {
       const downloadUrl = document?.cloudinaryUrl || document?.url || document?.uri;
@@ -97,33 +87,23 @@ const DocumentViewerScreen = ({ route, navigation }) => {
       }
 
       Alert.alert(
-        'Download Document',
-        'Would you like to download this document?',
+        'Open Document',
+        'This will open the document in your browser where you can view or download it.',
         [
           { text: 'Cancel', style: 'cancel' },
           {
-            text: 'Download',
+            text: 'Open',
             onPress: async () => {
               try {
-                if (Platform.OS === 'web') {
-                  // For web, open in new tab
-                  Linking.openURL(downloadUrl);
+                const supported = await Linking.canOpenURL(downloadUrl);
+                if (supported) {
+                  await Linking.openURL(downloadUrl);
                 } else {
-                  // For mobile, use FileSystem
-                  const fileName = document?.fileName || `document_${Date.now()}`;
-                  const fileUri = FileSystem.documentDirectory + fileName;
-
-                  const downloadResumable = FileSystem.createDownloadResumable(
-                    downloadUrl,
-                    fileUri
-                  );
-
-                  const { uri } = await downloadResumable.downloadAsync();
-                  Alert.alert('Success', `Document downloaded to: ${uri}`);
+                  Alert.alert('Error', 'Cannot open this URL');
                 }
-              } catch (downloadError) {
-                console.error('Download error:', downloadError);
-                Alert.alert('Error', 'Failed to download document');
+              } catch (error) {
+                console.error('Open error:', error);
+                Alert.alert('Error', 'Failed to open document');
               }
             },
           },
@@ -169,14 +149,17 @@ const DocumentViewerScreen = ({ route, navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              // TODO: Implement Cloudinary deletion via your backend
-              // For now, just navigate back
-              Alert.alert('Success', 'Document deleted successfully', [
-                {
-                  text: 'OK',
-                  onPress: () => navigation.goBack(),
-                },
-              ]);
+              const result = await deleteDocumentMetadata(document.id);
+              if (result.success) {
+                Alert.alert('Success', 'Document deleted successfully', [
+                  {
+                    text: 'OK',
+                    onPress: () => navigation.goBack(),
+                  },
+                ]);
+              } else {
+                Alert.alert('Error', 'Failed to delete document');
+              }
             } catch (error) {
               console.error('Delete error:', error);
               Alert.alert('Error', 'Failed to delete document');
@@ -189,12 +172,22 @@ const DocumentViewerScreen = ({ route, navigation }) => {
 
   // Show document info
   const handleShowInfo = () => {
+    const uploadDate = document?.uploadedAt 
+      ? new Date(document.uploadedAt).toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : 'Unknown';
+
     const info = `
 📄 File Name: ${document?.fileName || 'Unknown'}
 
 📊 File Size: ${document?.fileSize || 'Unknown'}
 
-📅 Uploaded: ${document?.uploadedAt || 'Unknown'}
+📅 Uploaded: ${uploadDate}
 
 🗂️ Document Type: ${document?.documentType || 'Unknown'}
 
@@ -211,183 +204,151 @@ const DocumentViewerScreen = ({ route, navigation }) => {
   if (!documentUrl) {
     return (
       <SafeAreaView style={styles.container}>
-        <LinearGradient colors={['#1C1917', '#292524', '#1C1917']} style={styles.gradient}>
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorIcon}>⚠️</Text>
-            <Text style={styles.errorText}>No document URL available</Text>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.goBackButton}
-            >
-              <Text style={styles.goBackButtonText}>Go Back</Text>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorText}>No document URL available</Text>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.goBackButton}
+          >
+            <Text style={styles.goBackButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#1C1917', '#292524', '#1C1917']} style={styles.gradient}>
-        {/* Header */}
-        <BlurView intensity={20} tint="dark" style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
-            <Text style={styles.headerIcon}>←</Text>
-          </TouchableOpacity>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+          <Text style={styles.headerIcon}>←</Text>
+        </TouchableOpacity>
 
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {document?.fileName || 'Document'}
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              {document?.fileSize || 'Unknown size'} • {document?.uploadedAt || 'Recently'}
-            </Text>
-          </View>
-
-          <TouchableOpacity onPress={handleDelete} style={styles.headerButton}>
-            <Text style={styles.headerIcon}>🗑️</Text>
-          </TouchableOpacity>
-        </BlurView>
-
-        {/* Document Viewer */}
-        <View style={styles.viewerContainer}>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#F59E0B" />
-              <Text style={styles.loadingText}>Loading document...</Text>
-            </View>
-          ) : isPDF ? (
-            <View style={styles.pdfContainer}>
-              <Pdf
-                source={{ uri: documentUrl, cache: true }}
-                style={styles.pdf}
-                onLoadComplete={(numberOfPages) => {
-                  console.log(`PDF loaded with ${numberOfPages} pages`);
-                  setTotalPages(numberOfPages);
-                }}
-                onPageChanged={(page, numberOfPages) => {
-                  console.log(`Page ${page} of ${numberOfPages}`);
-                  setPage(page);
-                }}
-                onError={(error) => {
-                  console.error('PDF load error:', error);
-                  Alert.alert('Error', 'Failed to load PDF document');
-                }}
-                trustAllCerts={false}
-                enablePaging={true}
-                horizontal={false}
-              />
-
-              {/* PDF Page Counter */}
-              <BlurView intensity={20} tint="dark" style={styles.pageCounter}>
-                <Text style={styles.pageCounterText}>
-                  Page {page} of {totalPages}
-                </Text>
-              </BlurView>
-            </View>
-          ) : isImage ? (
-            <ScrollView
-              contentContainerStyle={styles.imageScrollContainer}
-              maximumZoomScale={3}
-              minimumZoomScale={0.5}
-              showsVerticalScrollIndicator={false}
-              showsHorizontalScrollIndicator={false}
-            >
-              {imageError ? (
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorIcon}>⚠️</Text>
-                  <Text style={styles.errorText}>Failed to load image</Text>
-                  <TouchableOpacity onPress={handleOpenInBrowser} style={styles.retryButton}>
-                    <Text style={styles.retryButtonText}>Open in Browser</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <Image
-                  source={{ uri: documentUrl }}
-                  style={[styles.image, { transform: [{ scale: zoom }] }]}
-                  resizeMode="contain"
-                  onError={() => setImageError(true)}
-                  onLoadEnd={() => console.log('Image loaded successfully')}
-                />
-              )}
-            </ScrollView>
-          ) : (
-            <View style={styles.unsupportedContainer}>
-              <Text style={styles.unsupportedIcon}>📄</Text>
-              <Text style={styles.unsupportedText}>
-                Preview not available for this file type
-              </Text>
-              <Text style={styles.unsupportedSubtext}>
-                {document?.fileType || 'Unknown format'}
-              </Text>
-              <TouchableOpacity onPress={handleOpenInBrowser} style={styles.browserButton}>
-                <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.browserGradient}>
-                  <Text style={styles.browserButtonText}>🌐 Open in Browser</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          )}
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {document?.fileName || 'Document'}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {document?.fileSize || 'Unknown size'} • {document?.documentType || 'Document'}
+          </Text>
         </View>
 
-        {/* Zoom Controls (for images and PDFs) */}
-        {!loading && (isPDF || isImage) && (
-          <BlurView intensity={20} tint="dark" style={styles.zoomControls}>
-            <TouchableOpacity onPress={handleZoomOut} style={styles.zoomButton}>
-              <Text style={styles.zoomIcon}>−</Text>
-            </TouchableOpacity>
+        <TouchableOpacity onPress={handleDelete} style={styles.headerButton}>
+          <Text style={styles.headerIcon}>🗑️</Text>
+        </TouchableOpacity>
+      </View>
 
-            <TouchableOpacity onPress={resetZoom} style={styles.zoomButton}>
-              <Text style={styles.zoomText}>{Math.round(zoom * 100)}%</Text>
+      {/* Document Viewer */}
+      <View style={styles.viewerContainer}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#1E40AF" />
+            <Text style={styles.loadingText}>Loading document...</Text>
+          </View>
+        ) : isPDF ? (
+          <View style={styles.pdfContainer}>
+            <View style={styles.pdfPlaceholder}>
+              <Text style={styles.pdfIcon}>📄</Text>
+              <Text style={styles.pdfTitle}>PDF Document</Text>
+              <Text style={styles.pdfSubtitle}>{document?.fileName}</Text>
+              <Text style={styles.pdfDescription}>
+                PDF preview is not available in app.{'\n'}
+                Open in browser to view the document.
+              </Text>
+              <TouchableOpacity 
+                onPress={handleOpenInBrowser} 
+                style={styles.openBrowserButton}
+              >
+                <Text style={styles.openBrowserButtonText}>🌐 Open in Browser</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : isImage ? (
+          <ScrollView
+            contentContainerStyle={styles.imageScrollContainer}
+            maximumZoomScale={3}
+            minimumZoomScale={0.5}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+          >
+            {imageError ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorIcon}>⚠️</Text>
+                <Text style={styles.errorText}>Failed to load image</Text>
+                <TouchableOpacity onPress={handleOpenInBrowser} style={styles.retryButton}>
+                  <Text style={styles.retryButtonText}>Open in Browser</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Image
+                source={{ uri: documentUrl }}
+                style={[styles.image, { transform: [{ scale: zoom }] }]}
+                resizeMode="contain"
+                onError={() => setImageError(true)}
+                onLoadEnd={() => console.log('Image loaded successfully')}
+              />
+            )}
+          </ScrollView>
+        ) : (
+          <View style={styles.unsupportedContainer}>
+            <Text style={styles.unsupportedIcon}>📄</Text>
+            <Text style={styles.unsupportedText}>
+              Preview not available for this file type
+            </Text>
+            <Text style={styles.unsupportedSubtext}>
+              {document?.fileType || 'Unknown format'}
+            </Text>
+            <TouchableOpacity onPress={handleOpenInBrowser} style={styles.browserButton}>
+              <Text style={styles.browserButtonText}>🌐 Open in Browser</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity onPress={handleZoomIn} style={styles.zoomButton}>
-              <Text style={styles.zoomIcon}>+</Text>
-            </TouchableOpacity>
-          </BlurView>
+          </View>
         )}
+      </View>
 
-        {/* Bottom Action Bar */}
-        {!loading && (
-          <BlurView intensity={20} tint="dark" style={styles.actionBar}>
-            <TouchableOpacity onPress={handleShare} style={styles.actionButton}>
-              <View style={styles.actionIconContainer}>
-                <LinearGradient
-                  colors={['rgba(245, 158, 11, 0.2)', 'rgba(217, 119, 6, 0.2)']}
-                  style={styles.actionIconGradient}
-                >
-                  <Text style={styles.actionIcon}>↗️</Text>
-                </LinearGradient>
-              </View>
-              <Text style={styles.actionText}>Share</Text>
-            </TouchableOpacity>
+      {/* Zoom Controls (for images only) */}
+      {!loading && isImage && !imageError && (
+        <View style={styles.zoomControls}>
+          <TouchableOpacity onPress={handleZoomOut} style={styles.zoomButton}>
+            <Text style={styles.zoomIcon}>−</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleDownload} style={styles.actionButton}>
-              <View style={styles.actionIconContainer}>
-                <LinearGradient
-                  colors={['rgba(245, 158, 11, 0.2)', 'rgba(217, 119, 6, 0.2)']}
-                  style={styles.actionIconGradient}
-                >
-                  <Text style={styles.actionIcon}>⬇️</Text>
-                </LinearGradient>
-              </View>
-              <Text style={styles.actionText}>Download</Text>
-            </TouchableOpacity>
+          <TouchableOpacity onPress={resetZoom} style={styles.zoomButton}>
+            <Text style={styles.zoomText}>{Math.round(zoom * 100)}%</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleShowInfo} style={styles.actionButton}>
-              <View style={styles.actionIconContainer}>
-                <LinearGradient
-                  colors={['rgba(245, 158, 11, 0.2)', 'rgba(217, 119, 6, 0.2)']}
-                  style={styles.actionIconGradient}
-                >
-                  <Text style={styles.actionIcon}>ℹ️</Text>
-                </LinearGradient>
-              </View>
-              <Text style={styles.actionText}>Info</Text>
-            </TouchableOpacity>
-          </BlurView>
-        )}
-      </LinearGradient>
+          <TouchableOpacity onPress={handleZoomIn} style={styles.zoomButton}>
+            <Text style={styles.zoomIcon}>+</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Bottom Action Bar */}
+      {!loading && (
+        <View style={styles.actionBar}>
+          <TouchableOpacity onPress={handleShare} style={styles.actionButton}>
+            <View style={styles.actionIconContainer}>
+              <Text style={styles.actionIcon}>↗️</Text>
+            </View>
+            <Text style={styles.actionText}>Share</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleDownload} style={styles.actionButton}>
+            <View style={styles.actionIconContainer}>
+              <Text style={styles.actionIcon}>⬇️</Text>
+            </View>
+            <Text style={styles.actionText}>Download</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleShowInfo} style={styles.actionButton}>
+            <View style={styles.actionIconContainer}>
+              <Text style={styles.actionIcon}>ℹ️</Text>
+            </View>
+            <Text style={styles.actionText}>Info</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -395,19 +356,16 @@ const DocumentViewerScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1C1917',
-  },
-  gradient: {
-    flex: 1,
+    backgroundColor: '#F9FAFB',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: 'rgba(41, 37, 36, 0.6)',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(120, 113, 108, 0.2)',
+    borderBottomColor: '#E5E7EB',
   },
   headerButton: {
     width: 40,
@@ -415,7 +373,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: 'rgba(41, 37, 36, 0.6)',
+    backgroundColor: '#F3F4F6',
   },
   headerIcon: {
     fontSize: 20,
@@ -427,63 +385,92 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#E7E5E4',
+    color: '#1F2937',
     marginBottom: 2,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#A8A29E',
+    color: '#6B7280',
   },
   viewerContainer: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#F9FAFB',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1C1917',
+    backgroundColor: '#F9FAFB',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 14,
-    color: '#A8A29E',
+    color: '#6B7280',
   },
   pdfContainer: {
     flex: 1,
-    position: 'relative',
   },
-  pdf: {
+  pdfPlaceholder: {
     flex: 1,
-    width: width,
-    height: height,
-    backgroundColor: '#1C1917',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    backgroundColor: '#FFFFFF',
+    margin: 20,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  pageCounter: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  pdfIcon: {
+    fontSize: 80,
+    marginBottom: 20,
+  },
+  pdfTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  pdfSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  pdfDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
+    paddingHorizontal: 20,
+  },
+  openBrowserButton: {
+    backgroundColor: '#1E40AF',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
     borderRadius: 12,
-    backgroundColor: 'rgba(41, 37, 36, 0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(120, 113, 108, 0.2)',
   },
-  pageCounterText: {
-    fontSize: 12,
+  openBrowserButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
-    color: '#E7E5E4',
   },
   imageScrollContainer: {
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: height * 0.7,
+    padding: 20,
   },
   image: {
-    width: width,
+    width: width - 40,
     height: height * 0.7,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
   },
   errorContainer: {
     flex: 1,
@@ -497,18 +484,18 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#A8A29E',
+    color: '#6B7280',
     textAlign: 'center',
     marginBottom: 24,
   },
   retryButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#F59E0B',
+    backgroundColor: '#1E40AF',
     borderRadius: 12,
   },
   retryButtonText: {
-    color: '#1C1917',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -524,37 +511,35 @@ const styles = StyleSheet.create({
   },
   unsupportedText: {
     fontSize: 16,
-    color: '#E7E5E4',
+    color: '#1F2937',
     textAlign: 'center',
     marginBottom: 8,
   },
   unsupportedSubtext: {
     fontSize: 14,
-    color: '#A8A29E',
+    color: '#6B7280',
     textAlign: 'center',
     marginBottom: 24,
   },
   browserButton: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  browserGradient: {
+    backgroundColor: '#1E40AF',
     paddingHorizontal: 32,
     paddingVertical: 16,
+    borderRadius: 12,
   },
   browserButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1917',
+    color: '#FFFFFF',
   },
   goBackButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#F59E0B',
+    backgroundColor: '#1E40AF',
     borderRadius: 12,
   },
   goBackButtonText: {
-    color: '#1C1917',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -563,11 +548,16 @@ const styles = StyleSheet.create({
     bottom: 120,
     right: 16,
     flexDirection: 'column',
-    backgroundColor: 'rgba(41, 37, 36, 0.8)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(120, 113, 108, 0.2)',
+    borderColor: '#E5E7EB',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   zoomButton: {
     width: 48,
@@ -575,16 +565,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(120, 113, 108, 0.2)',
+    borderBottomColor: '#E5E7EB',
   },
   zoomIcon: {
     fontSize: 24,
-    color: '#F59E0B',
+    color: '#1E40AF',
     fontWeight: '600',
   },
   zoomText: {
     fontSize: 12,
-    color: '#E7E5E4',
+    color: '#1F2937',
     fontWeight: '600',
   },
   actionBar: {
@@ -593,9 +583,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingVertical: 16,
     paddingBottom: 16,
-    backgroundColor: 'rgba(41, 37, 36, 0.8)',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(120, 113, 108, 0.2)',
+    borderTopColor: '#E5E7EB',
   },
   actionButton: {
     alignItems: 'center',
@@ -605,15 +595,12 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  actionIconGradient: {
-    flex: 1,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderColor: '#DBEAFE',
   },
   actionIcon: {
     fontSize: 24,
@@ -621,7 +608,7 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#E7E5E4',
+    color: '#1F2937',
   },
 });
 
