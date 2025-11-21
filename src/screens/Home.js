@@ -174,11 +174,12 @@ const Home = ({ navigation, route }) => {
         <Text style={styles.sectionTitle}>Services</Text>
 
         <View style={styles.servicesGrid}>
+          {/* ⭐ UPDATED CRM SERVICE CARD ⭐ */}
           <ServiceCard
-            icon="👤"
+            icon="💼"
             title="CRM Service"
-            description="Manage customer details and KYC"
-            onPress={() => navigation.navigate('CustomerSearch')}
+            description="Customer Relationship Management"
+            onPress={() => navigation.navigate('CRM')}
           />
           <ServiceCard
             icon="📁"
@@ -217,6 +218,15 @@ const Home = ({ navigation, route }) => {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* ⭐ FLOATING CRM BUTTON (OPTIONAL) ⭐ */}
+      <TouchableOpacity
+        style={styles.floatingCRMButton}
+        onPress={() => navigation.navigate('CRM')}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.floatingCRMButtonIcon}>💼</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -470,7 +480,27 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   bottomPadding: {
-    height: 24,
+    height: 80,
+  },
+  // ⭐ FLOATING CRM BUTTON STYLES ⭐
+  floatingCRMButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#4F46E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  floatingCRMButtonIcon: {
+    fontSize: 28,
   },
 });
 

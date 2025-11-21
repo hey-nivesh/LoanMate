@@ -16,6 +16,7 @@ import DocumentPickerScreen from './screens/upload_doc/DocumentPickerScreen';
 import CreditReportScreen from './screens/CreditReportScreen';
 import DocumentViewerScreen from './screens/upload_doc/DocumentViewerScreen';
 import DocumentsListScreen from './screens/upload_doc/DocumentsListScreen';
+import LoanMateCRM from './screens/CRM_Service/LoanMateCRM';
 
 const App = () => {
   const [isAppReady, setIsAppReady] = useState(false);
@@ -178,6 +179,14 @@ const App = () => {
           <KYCVerificationScreen
             navigation={navigation}
             route={{ params: screenParams }}
+          />
+        );
+      case 'CRM':
+        console.log('✅ Rendering CRM Screen');
+        return (
+          <LoanMateCRM
+            navigation={navigation}
+            route={{ params: { userData, ...screenParams } }}
           />
         );
       case 'CreditReport':

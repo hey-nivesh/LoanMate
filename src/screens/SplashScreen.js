@@ -9,7 +9,7 @@ import {
   Dimensions,
   StatusBar,
   Text
-} from 'react-native';
+} from 'react-native';  
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AnimatedLoadingDots from '../components/common/AnimatedLoadingDots';
 
@@ -213,8 +213,6 @@ const SplashScreen = ({ navigation }) => {
           { opacity: fadeAnim }
         ]}
       >
-        <Text style={styles.brandingText}>Powered by</Text>
-        <Text style={styles.brandingName}>Tata Capital</Text>
       </Animated.View>
     </SafeAreaView>
   );

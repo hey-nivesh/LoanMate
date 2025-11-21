@@ -12,4 +12,9 @@
   name="KYCVerification" 
   component={KYCVerificationScreen} 
   options={{ headerShown: false }}
+/>,
+<Stack.Screen
+  name="CRM"
+  component={LoanMateCRM}
+  options={{ headerShown: false }}
 />
