@@ -202,19 +202,6 @@ const Home = ({ navigation, route }) => {
             onPress={() => navigation.navigate('LoanApplication')}
           />
         </View>
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
-
-        <View style={styles.activitySection}>
-          {customerData?.recentActivity?.map((activity, index) => (
-            <View key={index} style={styles.activityItem}>
-              <View style={styles.activityDot} />
-              <View style={styles.activityContent}>
-                <Text style={styles.activityText}>{activity.text}</Text>
-                <Text style={styles.activityTime}>{activity.time}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
 
         <View style={styles.bottomPadding} />
       </ScrollView>
