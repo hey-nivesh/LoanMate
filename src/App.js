@@ -17,6 +17,7 @@ import CreditReportScreen from './screens/CreditReportScreen';
 import DocumentViewerScreen from './screens/upload_doc/DocumentViewerScreen';
 import DocumentsListScreen from './screens/upload_doc/DocumentsListScreen';
 import LoanMateCRM from './screens/CRM_Service/LoanMateCRM';
+import LoanApplicationScreen from './screens/LoanApplicationScreen';
 
 const App = () => {
   const [isAppReady, setIsAppReady] = useState(false);
@@ -194,6 +195,13 @@ const App = () => {
           <CreditReportScreen
             navigation={navigation}
             route={{ params: screenParams }}
+          />
+        );
+      case 'LoanApplication':
+        return (
+          <LoanApplicationScreen
+            navigation={navigation}
+            route={{ params: { userData, ...screenParams } }}
           />
         );
       case 'Home':

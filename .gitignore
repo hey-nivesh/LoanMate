@@ -4,6 +4,8 @@
 mock_data
 CRMchatbot-backend
 CreaditReport
+DATABASE
+.env
 
 # Xcode
 #
